@@ -60,11 +60,23 @@
             <p class="text-[10px] font-mono font-medium text-white/20 uppercase tracking-widest px-2 pt-1 pb-2">Configuration</p>
 
             <div class="flex flex-col gap-1">
-                <label class="text-[11px] font-mono text-white/30 px-2">LLM API Key</label>
+                <label class="text-[11px] font-mono text-white/30 px-2">Provider</label>
+                <select
+                    id="provider"
+                    class="bg-surface border border-border rounded-lg px-3 py-2 text-xs font-mono text-white/70 focus:outline-none focus:border-accent/40 transition-colors w-full"
+                >
+                    <option value="anthropic">Anthropic (Claude)</option>
+                    <option value="openai">OpenAI (GPT-4o)</option>
+                    <option value="gemini">Google (Gemini)</option>
+                </select>
+            </div>
+
+            <div class="flex flex-col gap-1 mt-2">
+                <label class="text-[11px] font-mono text-white/30 px-2">API Key</label>
                 <input
                     type="password"
                     id="api-key"
-                    placeholder="sk-..."
+                    placeholder="sk-ant-..."
                     class="bg-surface border border-border rounded-lg px-3 py-2 text-xs font-mono text-white/70 placeholder-white/15 focus:outline-none focus:border-accent/40 focus:bg-accent/[0.03] transition-colors w-full"
                 />
             </div>

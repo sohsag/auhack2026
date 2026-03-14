@@ -1,135 +1,44 @@
 import express from 'express';
 import cors from 'cors';
+import pg from 'pg';
 import { readFileSync } from 'fs';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import {
-  ListToolsRequestSchema,
-  CallToolRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-const schema = JSON.parse(readFileSync('./schema.json', 'utf-8'));
-
-// --- MCP Server ---
-
-const mcpServer = new Server(
-  { name: 'sql-schema-server', version: '1.0.0' },
-  { capabilities: { tools: {} } }
-);
-
-mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    {
-      name: 'get_schema',
-      description:
-        'Returns the full database schema: all tables, columns, data types, descriptions, and foreign key relationships. Call this before generating any SQL.',
-      inputSchema: { type: 'object', properties: {} },
-    },
-    {
-      name: 'search_schema',
-      description:
-        'Search for tables or columns by keyword. Useful when the schema is large and you need to find relevant tables quickly.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'Keyword to search for in table/column names and descriptions',
-          },
-        },
-        required: ['query'],
-      },
-    },
-  ],
-}));
-
-mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-
-  if (name === 'get_schema') {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(schema, null, 2),
-        },
-      ],
-    };
-  }
-
-  if (name === 'search_schema') {
-    const q = args.query.toLowerCase();
-    const matches = schema.tables
-      .map((table) => {
-        const tableMatches =
-          table.name.toLowerCase().includes(q) ||
-          table.description.toLowerCase().includes(q);
-
-        const matchingColumns = table.columns.filter(
-          (col) =>
-            col.name.toLowerCase().includes(q) ||
-            col.description.toLowerCase().includes(q)
-        );
-
-        if (tableMatches || matchingColumns.length > 0) {
-          return {
-            table: table.name,
-            description: table.description,
-            columns: tableMatches ? table.columns : matchingColumns,
-          };
-        }
-        return null;
-      })
-      .filter(Boolean);
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: matches.length
-            ? JSON.stringify(matches, null, 2)
-            : `No tables or columns matching "${args.query}" found.`,
-        },
-      ],
-    };
-  }
-
-  throw new Error(`Unknown tool: ${name}`);
-});
-
-// --- Express HTTP wrapper (for browser/extension clients via SSE) ---
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const schema = JSON.parse(readFileSync(path.join(__dirname, 'schema.json'), 'utf-8'));
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
-const transports = {};
-
-app.get('/sse', async (req, res) => {
-  const transport = new SSEServerTransport('/messages', res);
-  transports[transport.sessionId] = transport;
-  await mcpServer.connect(transport);
-
-  res.on('close', () => {
-    delete transports[transport.sessionId];
-  });
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
 });
 
-app.post('/messages', express.json(), async (req, res) => {
-  const sessionId = req.query.sessionId;
-  const transport = transports[sessionId];
-  if (!transport) {
-    return res.status(404).json({ error: 'Session not found' });
+// Return the documented schema so the LLM has full context
+app.get('/schema', (req, res) => res.json(schema));
+
+// Execute a read-only SQL query
+app.post('/query', async (req, res) => {
+  const { sql } = req.body;
+  if (!sql) return res.status(400).json({ error: 'Missing sql field' });
+
+  const normalized = sql.trim().toLowerCase();
+  if (!normalized.startsWith('select') && !normalized.startsWith('with')) {
+    return res.status(403).json({ error: 'Only SELECT queries are allowed' });
   }
-  await transport.handlePostMessage(req, res);
+
+  try {
+    const result = await pool.query(sql);
+    res.json({ columns: result.fields.map(f => f.name), rows: result.rows });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
-// Health check — useful for verifying the server is up
-app.get('/health', (_, res) => res.json({ status: 'ok', database: schema.database }));
+app.get('/health', (_, res) => res.json({ status: 'ok' }));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`MCP server running on http://localhost:${PORT}`);
-  console.log(`  SSE endpoint:    GET  /sse`);
-  console.log(`  Message handler: POST /messages`);
-  console.log(`  Health check:    GET  /health`);
-});
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
