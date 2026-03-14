@@ -4,6 +4,7 @@ const userInput = document.getElementById('user-input');
 const apiKeyInput = document.getElementById('api-key');
 const mcpUrlInput = document.getElementById('mcp-url');
 const providerSelect = document.getElementById('provider');
+const dbUrlInput = document.getElementById('db-url');
 const dbStatus = document.getElementById('db-status');
 
 // ── Persistence ───────────────────────────────────────────────────────────────
@@ -12,9 +13,11 @@ window.addEventListener('load', async () => {
   const savedKey = localStorage.getItem('llm_api_key');
   const savedUrl = localStorage.getItem('mcp_url');
   const savedProvider = localStorage.getItem('llm_provider');
+  const savedDbUrl = localStorage.getItem('db_url');
   if (savedKey) apiKeyInput.value = savedKey;
   if (savedUrl) mcpUrlInput.value = savedUrl;
   if (savedProvider) providerSelect.value = savedProvider;
+  if (savedDbUrl) dbUrlInput.value = savedDbUrl;
   updateKeyPlaceholder();
   await checkServerStatus();
 });
@@ -25,6 +28,7 @@ function updateKeyPlaceholder() {
 }
 
 apiKeyInput.addEventListener('change', () => localStorage.setItem('llm_api_key', apiKeyInput.value.trim()));
+dbUrlInput.addEventListener('change', () => localStorage.setItem('db_url', dbUrlInput.value.trim()));
 providerSelect.addEventListener('change', () => {
   localStorage.setItem('llm_provider', providerSelect.value);
   updateKeyPlaceholder();
@@ -130,9 +134,14 @@ function escapeHtml(str) {
 
 // ── MCP Tool Executors ────────────────────────────────────────────────────────
 
+function dbHeaders() {
+  const dbUrl = dbUrlInput.value.trim();
+  return dbUrl ? { 'x-database-url': dbUrl } : {};
+}
+
 async function getSchema() {
   const base = mcpUrlInput.value.trim() || 'http://localhost:3000';
-  const res = await fetch(`${base}/schema`);
+  const res = await fetch(`${base}/schema`, { headers: dbHeaders() });
   if (!res.ok) throw new Error('Could not fetch schema from MCP server');
   return await res.json();
 }
@@ -141,7 +150,7 @@ async function runSql(sql) {
   const base = mcpUrlInput.value.trim() || 'http://localhost:3000';
   const res = await fetch(`${base}/query`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...dbHeaders() },
     body: JSON.stringify({ sql }),
   });
   const data = await res.json();
