@@ -12,10 +12,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
+const defaultPool = process.env.DATABASE_URL
+  ? new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
+  : null;
+
+const poolCache = {};
+
+function getPool(req) {
+  const url = req.headers['x-database-url'] || process.env.DATABASE_URL;
+  if (!url) throw new Error('No database URL configured. Set one in the app sidebar or DATABASE_URL env var.');
+  if (!poolCache[url]) {
+    poolCache[url] = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+  }
+  return poolCache[url];
+}
 
 // Return the documented schema so the LLM has full context
 app.get('/schema', (req, res) => res.json(schema));
@@ -31,6 +41,7 @@ app.post('/query', async (req, res) => {
   }
 
   try {
+    const pool = getPool(req);
     const result = await pool.query(sql);
     res.json({ columns: result.fields.map(f => f.name), rows: result.rows });
   } catch (err) {
