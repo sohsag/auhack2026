@@ -2,7 +2,7 @@ const chatWindow = document.getElementById('chat-window');
 const inputForm = document.getElementById('input-area');
 const userInput = document.getElementById('user-input');
 const apiKeyInput = document.getElementById('api-key');
-const mcpUrlInput = document.getElementById('mcp-url');
+const serverUrlInput = document.getElementById('server-url');
 const providerSelect = document.getElementById('provider');
 const dbUrlInput = document.getElementById('db-url');
 const dbStatus = document.getElementById('db-status');
@@ -19,11 +19,11 @@ sidebarToggle.addEventListener('click', () => {
 
 window.addEventListener('load', async () => {
   const savedKey = localStorage.getItem('llm_api_key');
-  const savedUrl = localStorage.getItem('mcp_url');
+  const savedUrl = localStorage.getItem('server_url');
   const savedProvider = localStorage.getItem('llm_provider');
   const savedDbUrl = localStorage.getItem('db_url');
   if (savedKey) apiKeyInput.value = savedKey;
-  if (savedUrl) mcpUrlInput.value = savedUrl;
+  if (savedUrl) serverUrlInput.value = savedUrl;
   if (savedProvider) providerSelect.value = savedProvider;
   if (savedDbUrl) dbUrlInput.value = savedDbUrl;
   updateKeyPlaceholder();
@@ -41,13 +41,13 @@ providerSelect.addEventListener('change', () => {
   localStorage.setItem('llm_provider', providerSelect.value);
   updateKeyPlaceholder();
 });
-mcpUrlInput.addEventListener('change', async () => {
-  localStorage.setItem('mcp_url', mcpUrlInput.value.trim());
+serverUrlInput.addEventListener('change', async () => {
+  localStorage.setItem('server_url', serverUrlInput.value.trim());
   await checkServerStatus();
 });
 
 async function checkServerStatus() {
-  const url = mcpUrlInput.value.trim() || 'http://localhost:3000';
+  const url = serverUrlInput.value.trim() || 'http://localhost:3000';
   try {
     const res = await fetch(`${url}/health`);
     if (res.ok) setStatus(true);
@@ -143,21 +143,23 @@ function escapeHtml(str) {
 
 // ── MCP Tool Executors ────────────────────────────────────────────────────────
 
+function serverBase() {
+  return serverUrlInput.value.trim() || 'http://localhost:3000';
+}
+
 function dbHeaders() {
   const dbUrl = dbUrlInput.value.trim();
   return dbUrl ? { 'x-database-url': dbUrl } : {};
 }
 
 async function getSchema() {
-  const base = mcpUrlInput.value.trim() || 'http://localhost:3000';
-  const res = await fetch(`${base}/schema`, { headers: dbHeaders() });
-  if (!res.ok) throw new Error('Could not fetch schema from MCP server');
+  const res = await fetch(`${serverBase()}/schema`, { headers: dbHeaders() });
+  if (!res.ok) throw new Error('Could not fetch schema from server');
   return await res.json();
 }
 
 async function runSql(sql) {
-  const base = mcpUrlInput.value.trim() || 'http://localhost:3000';
-  const res = await fetch(`${base}/query`, {
+  const res = await fetch(`${serverBase()}/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...dbHeaders() },
     body: JSON.stringify({ sql }),
@@ -186,9 +188,12 @@ providerSelect.addEventListener('change', () => {
 
 // ── Tool Definitions (provider-specific formats) ──────────────────────────────
 
-const SYSTEM_PROMPT = `You help users query and understand energy data using SQL. Always call get_schema before writing SQL so you use correct table and column names.
+function getSystemPrompt() {
+  return `You help users query and understand European energy grid data using SQL. The database is PostgreSQL.
+Always call get_schema before writing SQL so you use correct table and column names.
 When you write SQL, show it clearly. After running a query, explain the results in plain language.
 Only use SELECT queries. Never modify data.`;
+}
 
 const TOOL_DEFS = {
   get_schema: {
@@ -196,10 +201,10 @@ const TOOL_DEFS = {
     parameters: { type: 'object', properties: {} },
   },
   run_sql: {
-    description: 'Executes a read-only SQL SELECT query against the Postgres database and returns the results.',
+    description: 'Executes a read-only SQL SELECT query and returns the results.',
     parameters: {
       type: 'object',
-      properties: { sql: { type: 'string', description: 'A valid PostgreSQL SELECT query' } },
+      properties: { sql: { type: 'string', description: 'A valid SQL SELECT query for the configured backend' } },
       required: ['sql'],
     },
   },
@@ -322,7 +327,7 @@ async function askAnthropic(messages, bubble, apiKey) {
       'anthropic-dangerous-direct-browser-access': 'true',
       'content-type': 'application/json',
     },
-    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4096, system: SYSTEM_PROMPT, tools, messages }),
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4096, system: getSystemPrompt(), tools, messages }),
   });
   if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'Anthropic API error'); }
 
@@ -354,7 +359,7 @@ async function askOpenAI(messages, bubble, apiKey, { baseUrl = 'https://api.open
     type: 'function', function: { name, description: def.description, parameters: def.parameters },
   }));
 
-  const oaiMessages = [{ role: 'system', content: SYSTEM_PROMPT }, ...messages];
+  const oaiMessages = [{ role: 'system', content: getSystemPrompt() }, ...messages];
 
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -399,7 +404,7 @@ async function askGemini(contents, bubble, apiKey) {
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] }, tools, contents }),
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: getSystemPrompt() }] }, tools, contents }),
     }
   );
   if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'Gemini API error'); }

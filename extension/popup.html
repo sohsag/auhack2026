@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 280px;
+      background: #111;
+      color: rgba(255,255,255,0.7);
+      font-family: 'Geist Mono', monospace;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .logo {
+      font-size: 13px;
+      font-weight: 700;
+      color: #4fffb0;
+      letter-spacing: 0.05em;
+    }
+    .section-label {
+      font-size: 9px;
+      color: rgba(255,255,255,0.2);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: -8px;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 10px;
+      color: rgba(255,255,255,0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    input, select {
+      background: #0a0a0a;
+      border: 1px solid #1f1f1f;
+      border-radius: 7px;
+      padding: 8px 10px;
+      color: rgba(255,255,255,0.7);
+      font-size: 11px;
+      font-family: inherit;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: rgba(79,255,176,0.4); }
+    button {
+      background: #4fffb0;
+      color: #000;
+      border: none;
+      border-radius: 7px;
+      padding: 9px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:hover { opacity: 0.85; }
+    #saved {
+      font-size: 10px;
+      color: #4fffb0;
+      text-align: center;
+      min-height: 14px;
+    }
+    hr { border: none; border-top: 1px solid #1f1f1f; }
+  </style>
+</head>
+<body>
+  <span class="logo">Nerdata</span>
+  <hr />
+
+  <p class="section-label">LLM</p>
+  <label>Provider
+    <select id="provider">
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="openai">OpenAI (GPT-4o)</option>
+      <option value="gemini">Google (Gemini)</option>
+      <option value="kimi">Moonshot (Kimi K2)</option>
+      <option value="groq">Groq (Kimi K2)</option>
+      <option value="groq-llama">Groq (Llama 4 Scout)</option>
+    </select>
+  </label>
+  <label>API Key
+    <input type="password" id="apiKey" placeholder="Paste your LLM API key" />
+  </label>
+
+  <hr />
+  <p class="section-label">AWS / Athena</p>
+  <label>Access Key ID
+    <input type="text" id="awsKeyId" placeholder="AKIA..." autocomplete="off" />
+  </label>
+  <label>Secret Access Key
+    <input type="password" id="awsSecret" placeholder="Secret key" />
+  </label>
+  <label>Region
+    <input type="text" id="awsRegion" placeholder="eu-west-1" />
+  </label>
+  <label>Glue Database
+    <input type="text" id="glueDatabase" placeholder="nerdata" />
+  </label>
+  <label>Athena Output S3
+    <input type="text" id="athenaOutput" placeholder="s3://bucket/athena-results/" />
+  </label>
+
+  <button id="save">Save</button>
+  <div id="saved"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

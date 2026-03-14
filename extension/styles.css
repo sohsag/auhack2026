@@ -1,0 +1,142 @@
+#nerdata-bar {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 99999;
+  font-family: 'Geist Mono', 'Fira Code', monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+#nerdata-toggle {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #0a0a0a;
+  border: 1px solid #1f1f1f;
+  color: #4fffb0;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  transition: border-color 0.2s;
+}
+
+#nerdata-toggle:hover {
+  border-color: #4fffb0;
+}
+
+#nerdata-panel {
+  background: #111111;
+  border: 1px solid #1f1f1f;
+  border-radius: 12px;
+  padding: 14px;
+  width: 360px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#nerdata-panel.hidden {
+  display: none;
+}
+
+#nerdata-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#nerdata-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4fffb0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#nerdata-input {
+  width: 100%;
+  background: #0a0a0a;
+  border: 1px solid #1f1f1f;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: rgba(255,255,255,0.8);
+  font-size: 12px;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+#nerdata-input:focus {
+  border-color: rgba(79,255,176,0.3);
+}
+
+#nerdata-input::placeholder {
+  color: rgba(255,255,255,0.15);
+}
+
+#nerdata-actions {
+  display: flex;
+  gap: 8px;
+}
+
+#nerdata-generate {
+  flex: 1;
+  background: #4fffb0;
+  color: #000;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+#nerdata-generate:hover { opacity: 0.85; }
+#nerdata-generate:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#nerdata-insert {
+  background: transparent;
+  color: #4fffb0;
+  border: 1px solid #1f1f1f;
+  border-radius: 7px;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  display: none;
+}
+
+#nerdata-insert:hover { border-color: #4fffb0; }
+
+#nerdata-sql-preview {
+  background: #0a0a0a;
+  border: 1px solid #1f1f1f;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 11px;
+  color: #4fffb0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 180px;
+  overflow-y: auto;
+  display: none;
+}
+
+#nerdata-status {
+  font-size: 10px;
+  color: rgba(255,255,255,0.25);
+  text-align: center;
+  min-height: 14px;
+}
