@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL-AI Query Glue</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        #chat-window::-webkit-scrollbar { width: 6px; }
+        #chat-window::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-[#121212] text-[#ececec] flex h-screen overflow-hidden">
+
+    <aside class="w-72 bg-[#1e1e1e] p-6 border-r border-[#333] flex flex-col gap-6">
+        <h2 class="text-xl font-semibold">Settings</h2>
+        
+        <div class="flex flex-col gap-2">
+            <label class="text-xs font-bold text-gray-500 uppercase">LLM API Key</label>
+            <input type="password" id="api-key" placeholder="sk-..." 
+                class="bg-[#2a2a2a] border border-[#333] rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-white">
+        </div>
+        
+        <div class="flex flex-col gap-2">
+            <label class="text-xs font-bold text-gray-500 uppercase">MCP Server URL</label>
+            <input type="text" id="mcp-url" value="http://localhost:3000" 
+                class="bg-[#2a2a2a] border border-[#333] rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-white">
+        </div>
+        
+        <hr class="border-[#333]">
+        
+        <div class="text-sm">
+            <label class="text-xs font-bold text-gray-500 uppercase block mb-1">Dataset Status</label>
+            <div id="db-status" class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-red-500"></span> Disconnected
+            </div>
+        </div>
+        
+        <p class="mt-auto text-[10px] opacity-40 leading-relaxed uppercase tracking-widest">
+            Privacy-First: Keys stored in localStorage
+        </p>
+    </aside>
+
+    <main class="flex-1 flex flex-col">
+        <div id="chat-window" class="flex-1 overflow-y-auto p-8 flex flex-col gap-6">
+            <div class="max-w-[80%] self-start bg-[#2b2b2b] p-4 rounded-2xl rounded-bl-none text-sm leading-relaxed shadow-lg">
+                Hello! I'm your SQL-enabled assistant. Set your API key and ask a question about your data.
+            </div>
+        </div>
+
+        <div class="p-6 bg-[#121212] border-t border-[#333]">
+            <form id="input-area" class="max-w-4xl mx-auto flex gap-3">
+                <input type="text" id="user-input" placeholder="e.g. What was the average temperature in Germany in 2024?" autocomplete="off"
+                    class="flex-1 bg-[#1e1e1e] border border-[#333] text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all">
+                <button type="submit" 
+                    class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-colors active:scale-95">
+                    Send
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
