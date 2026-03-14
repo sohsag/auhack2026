@@ -19,7 +19,7 @@ window.addEventListener('load', async () => {
   await checkServerStatus();
 });
 
-const PLACEHOLDERS = { anthropic: 'sk-ant-...', openai: 'sk-...', gemini: 'AIza...' };
+const PLACEHOLDERS = { anthropic: 'sk-ant-...', openai: 'sk-...', gemini: 'AIza...', groq: 'gsk_...' };
 function updateKeyPlaceholder() {
   apiKeyInput.placeholder = PLACEHOLDERS[providerSelect.value] || 'API key...';
 }
@@ -315,6 +315,43 @@ async function askGemini(contents, bubble, apiKey) {
   return parts.find(p => p.text)?.text || '';
 }
 
+// ── Provider: Groq (Kimi K2) ────────────────────────────────────────────────────
+
+async function askGroq(messages, bubble, apiKey) {
+  // Vi bruger Groqs OpenAI‑kompatible endpoint
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'moonshotai/kimi-k2-instruct-0905',
+      temperature: 0.6,
+      max_tokens: 4096,
+      top_p: 1,
+      stream: false,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...messages,
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    let msg = 'Groq API error';
+    try {
+      const e = await res.json();
+      msg = e.error?.message || msg;
+    } catch (_) {}
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  const choice = data.choices?.[0]?.message;
+  return choice?.content || '';
+}
+
 // ── Main Handler ──────────────────────────────────────────────────────────────
 
 async function processQuery(e) {
@@ -345,6 +382,8 @@ async function processQuery(e) {
       answer = await askOpenAI([{ role: 'user', content: query }], bubble, apiKey);
     } else if (provider === 'gemini') {
       answer = await askGemini([{ role: 'user', parts: [{ text: query }] }], bubble, apiKey);
+    } else if (provider === 'groq') {
+      answer = await askGroq([{ role: 'user', content: query }], bubble, apiKey);
     }
 
     bubble.querySelectorAll('#thinking-text').forEach(el => el.remove());
