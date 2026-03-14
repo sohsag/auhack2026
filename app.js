@@ -6,6 +6,14 @@ const mcpUrlInput = document.getElementById('mcp-url');
 const providerSelect = document.getElementById('provider');
 const dbUrlInput = document.getElementById('db-url');
 const dbStatus = document.getElementById('db-status');
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebar-toggle');
+
+sidebarToggle.addEventListener('click', () => {
+  const collapsed = sidebar.style.width === '0px';
+  sidebar.style.width = collapsed ? '16rem' : '0px';
+  sidebar.style.borderWidth = collapsed ? '' : '0';
+});
 
 // ── Persistence ───────────────────────────────────────────────────────────────
 
@@ -195,7 +203,82 @@ const TOOL_DEFS = {
       required: ['sql'],
     },
   },
+  plot_data: {
+    description: 'Renders a chart in the chat from data. Use when the user asks to visualize, plot, or graph data. Pull labels and values from previous query results.',
+    parameters: {
+      type: 'object',
+      properties: {
+        chart_type: { type: 'string', enum: ['bar', 'line', 'pie', 'doughnut'], description: 'Type of chart to render' },
+        title: { type: 'string', description: 'Chart title' },
+        labels: { type: 'array', items: { type: 'string' }, description: 'X-axis or slice labels' },
+        datasets: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string' },
+              data: { type: 'array', items: { type: 'number' } },
+            },
+            required: ['label', 'data'],
+          },
+          description: 'One or more data series to plot',
+        },
+      },
+      required: ['chart_type', 'labels', 'datasets'],
+    },
+  },
 };
+
+// ── Chart Renderer ────────────────────────────────────────────────────────────
+
+const CHART_COLORS = [
+  '#4fffb0', '#60a5fa', '#f472b6', '#fb923c', '#a78bfa',
+  '#34d399', '#fbbf24', '#f87171', '#38bdf8', '#c084fc',
+];
+
+function renderChart(bubble, { chart_type, title, labels, datasets }) {
+  const id = `chart-${Date.now()}`;
+  appendToBubble(bubble, `
+    <div class="flex items-start gap-3 mt-2">
+      <div class="w-6 h-6 shrink-0"></div>
+      <div class="min-w-0 flex-1 bg-panel border border-border rounded-xl p-4">
+        ${title ? `<p class="text-xs font-mono text-white/40 mb-3">${escapeHtml(title)}</p>` : ''}
+        <canvas id="${id}" style="max-height:360px"></canvas>
+      </div>
+    </div>`);
+
+  const ctx = document.getElementById(id).getContext('2d');
+  new Chart(ctx, {
+    type: chart_type,
+    data: {
+      labels,
+      datasets: datasets.map((ds, i) => ({
+        label: ds.label,
+        data: ds.data,
+        backgroundColor: datasets.length === 1 && labels.length > 1
+          ? labels.map((_, j) => CHART_COLORS[j % CHART_COLORS.length] + 'cc')
+          : CHART_COLORS[i % CHART_COLORS.length] + 'cc',
+        borderColor: datasets.length === 1 && labels.length > 1
+          ? labels.map((_, j) => CHART_COLORS[j % CHART_COLORS.length])
+          : CHART_COLORS[i % CHART_COLORS.length],
+        borderWidth: 1.5,
+        tension: 0.3,
+        fill: false,
+        pointRadius: chart_type === 'line' ? 3 : undefined,
+      })),
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: 'rgba(255,255,255,0.5)', font: { family: 'Geist Mono', size: 11 } } },
+      },
+      scales: ['bar', 'line'].includes(chart_type) ? {
+        x: { ticks: { color: 'rgba(255,255,255,0.3)', font: { family: 'Geist Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: 'rgba(255,255,255,0.3)', font: { family: 'Geist Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+      } : {},
+    },
+  });
+}
 
 // ── Tool Executor ─────────────────────────────────────────────────────────────
 
@@ -203,6 +286,11 @@ async function executeTool(name, input, bubble) {
   if (name === 'get_schema') {
     bubble.querySelector('#thinking-text') && (bubble.querySelector('#thinking-text').textContent = 'Fetching schema…');
     return JSON.stringify(await getSchema());
+  }
+  if (name === 'plot_data') {
+    bubble.querySelector('#thinking-text') && (bubble.querySelector('#thinking-text').textContent = 'Rendering chart…');
+    renderChart(bubble, input);
+    return JSON.stringify({ success: true, message: 'Chart rendered in chat.' });
   }
   if (name === 'run_sql') {
     bubble.querySelector('#thinking-text') && (bubble.querySelector('#thinking-text').textContent = 'Running query…');
