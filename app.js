@@ -159,10 +159,26 @@ async function runSql(sql) {
   return data;
 }
 
+// ── Conversation History ──────────────────────────────────────────────────────
+
+const history = { anthropic: [], openai: [], gemini: [] };
+
+function historyFor(provider) {
+  if (provider === 'anthropic') return history.anthropic;
+  if (provider === 'gemini') return history.gemini;
+  return history.openai; // openai, kimi, groq, groq-llama all share the format
+}
+
+// Reset history when provider changes so stale tool-call formats don't bleed across
+providerSelect.addEventListener('change', () => {
+  history.anthropic = [];
+  history.openai = [];
+  history.gemini = [];
+});
+
 // ── Tool Definitions (provider-specific formats) ──────────────────────────────
 
-const SYSTEM_PROMPT = `You are a data analyst assistant with access to a European energy grid database for 2024.
-You help users query and understand energy data using SQL. Always call get_schema before writing SQL so you use correct table and column names.
+const SYSTEM_PROMPT = `You help users query and understand energy data using SQL. Always call get_schema before writing SQL so you use correct table and column names.
 When you write SQL, show it clearly. After running a query, explain the results in plain language.
 Only use SELECT queries. Never modify data.`;
 
@@ -348,27 +364,22 @@ async function processQuery(e) {
 
   try {
     let answer;
+    const hist = historyFor(provider);
+
     if (provider === 'anthropic') {
-      answer = await askAnthropic([{ role: 'user', content: query }], bubble, apiKey);
-    } else if (provider === 'openai') {
-      answer = await askOpenAI([{ role: 'user', content: query }], bubble, apiKey);
+      hist.push({ role: 'user', content: query });
+      answer = await askAnthropic(hist, bubble, apiKey);
     } else if (provider === 'gemini') {
-      answer = await askGemini([{ role: 'user', parts: [{ text: query }] }], bubble, apiKey);
-    } else if (provider === 'kimi') {
-      answer = await askOpenAI([{ role: 'user', content: query }], bubble, apiKey, {
-        baseUrl: 'https://api.moonshot.ai/v1',
-        model: 'kimi-k2-0711-preview',
-      });
-    } else if (provider === 'groq') {
-      answer = await askOpenAI([{ role: 'user', content: query }], bubble, apiKey, {
-        baseUrl: 'https://api.groq.com/openai/v1',
-        model: 'moonshotai/kimi-k2-instruct-0905',
-      });
-    } else if (provider === 'groq-llama') {
-      answer = await askOpenAI([{ role: 'user', content: query }], bubble, apiKey, {
-        baseUrl: 'https://api.groq.com/openai/v1',
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-      });
+      hist.push({ role: 'user', parts: [{ text: query }] });
+      answer = await askGemini(hist, bubble, apiKey);
+    } else {
+      hist.push({ role: 'user', content: query });
+      const opts =
+        provider === 'kimi'        ? { baseUrl: 'https://api.moonshot.ai/v1', model: 'kimi-k2-0711-preview' } :
+        provider === 'groq'        ? { baseUrl: 'https://api.groq.com/openai/v1', model: 'moonshotai/kimi-k2-instruct-0905' } :
+        provider === 'groq-llama'  ? { baseUrl: 'https://api.groq.com/openai/v1', model: 'meta-llama/llama-4-scout-17b-16e-instruct' } :
+                                     {};
+      answer = await askOpenAI(hist, bubble, apiKey, opts);
     }
 
     bubble.querySelectorAll('#thinking-text').forEach(el => el.closest('div')?.remove());
