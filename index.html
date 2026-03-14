@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SQL-AI Query Glue</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet"/>
     <script>
         tailwind.config = {
@@ -68,6 +68,9 @@
                     <option value="anthropic">Anthropic (Claude)</option>
                     <option value="openai">OpenAI (GPT-4o)</option>
                     <option value="gemini">Google (Gemini)</option>
+                    <option value="kimi">Moonshot (Kimi K2)</option>
+                    <option value="groq">Groq (Kimi K2)</option>
+                    <option value="groq-llama">Groq (Llama 4 Scout)</option>
                 </select>
             </div>
 
@@ -177,6 +180,7 @@
 
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

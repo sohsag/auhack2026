@@ -22,7 +22,7 @@ window.addEventListener('load', async () => {
   await checkServerStatus();
 });
 
-const PLACEHOLDERS = { anthropic: 'sk-ant-...', openai: 'sk-...', gemini: 'AIza...' };
+const PLACEHOLDERS = { anthropic: 'sk-ant-...', openai: 'sk-...', gemini: 'AIza...', kimi: 'sk-...', groq: 'gsk_...', 'groq-llama': 'gsk_...' };
 function updateKeyPlaceholder() {
   apiKeyInput.placeholder = PLACEHOLDERS[providerSelect.value] || 'API key...';
 }
@@ -96,9 +96,9 @@ function thinkingBubble() {
   );
 }
 
-function replaceThinking(bubble, html) {
-  bubble.querySelector('#thinking-text')?.remove();
-  bubble.querySelector('.flex.items-start')?.insertAdjacentHTML('beforeend', html);
+function appendToBubble(bubble, html) {
+  bubble.querySelector('#thinking-text')?.closest('div')?.remove();
+  bubble.insertAdjacentHTML('beforeend', html);
 }
 
 function sqlBlock(sql) {
@@ -121,7 +121,8 @@ function resultsTable(columns, rows) {
 }
 
 function assistantText(text) {
-  return `<div class="bg-panel border border-border rounded-xl rounded-tl-sm px-4 py-3 text-sm text-white/70 leading-relaxed">${escapeHtml(text)}</div>`;
+  const html = marked.parse(text);
+  return `<div class="bg-panel border border-border rounded-xl rounded-tl-sm px-4 py-3 text-sm text-white/70 leading-relaxed prose prose-invert prose-sm max-w-none">${html}</div>`;
 }
 
 function errorBubble(msg) {
@@ -190,12 +191,12 @@ async function executeTool(name, input, bubble) {
   if (name === 'run_sql') {
     bubble.querySelector('#thinking-text') && (bubble.querySelector('#thinking-text').textContent = 'Running query…');
     const result = await runSql(input.sql);
-    replaceThinking(bubble, `
-      <div class="flex items-start gap-3">
+    appendToBubble(bubble, `
+      <div class="flex items-start gap-3 mt-2">
         <div class="w-6 h-6 shrink-0"></div>
-        <div>${sqlBlock(input.sql)}${resultsTable(result.columns, result.rows)}</div>
+        <div class="min-w-0 flex-1">${sqlBlock(input.sql)}${resultsTable(result.columns, result.rows)}</div>
       </div>`);
-    bubble.querySelector('.flex.items-start:last-child')?.insertAdjacentHTML('afterend',
+    bubble.insertAdjacentHTML('beforeend',
       `<div class="flex items-start gap-3 mt-2"><div class="w-6 h-6 shrink-0"></div><div class="text-sm text-white/40 italic" id="thinking-text">Interpreting results…</div></div>`);
     return JSON.stringify(result);
   }
@@ -244,18 +245,17 @@ async function askAnthropic(messages, bubble, apiKey) {
 
 // ── Provider: OpenAI ──────────────────────────────────────────────────────────
 
-async function askOpenAI(messages, bubble, apiKey) {
+async function askOpenAI(messages, bubble, apiKey, { baseUrl = 'https://api.openai.com/v1', model = 'gpt-4o' } = {}) {
   const tools = Object.entries(TOOL_DEFS).map(([name, def]) => ({
     type: 'function', function: { name, description: def.description, parameters: def.parameters },
   }));
 
-  // Convert messages to OpenAI format (role + content strings)
   const oaiMessages = [{ role: 'system', content: SYSTEM_PROMPT }, ...messages];
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o', tools, messages: oaiMessages }),
+    body: JSON.stringify({ model, tools, messages: oaiMessages }),
   });
   if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'OpenAI API error'); }
 
@@ -275,7 +275,7 @@ async function askOpenAI(messages, bubble, apiKey) {
       oaiMessages.push({ role: 'tool', tool_call_id: tc.id, content });
       messages.push({ role: 'tool', tool_call_id: tc.id, content });
     }
-    return askOpenAI(messages, bubble, apiKey);
+    return askOpenAI(messages, bubble, apiKey, { baseUrl, model });
   }
 
   return choice.content || '';
@@ -354,14 +354,36 @@ async function processQuery(e) {
       answer = await askOpenAI([{ role: 'user', content: query }], bubble, apiKey);
     } else if (provider === 'gemini') {
       answer = await askGemini([{ role: 'user', parts: [{ text: query }] }], bubble, apiKey);
+    } else if (provider === 'kimi') {
+      answer = await askOpenAI([{ role: 'user', content: query }], bubble, apiKey, {
+        baseUrl: 'https://api.moonshot.ai/v1',
+        model: 'kimi-k2-0711-preview',
+      });
+    } else if (provider === 'groq') {
+      answer = await askOpenAI([{ role: 'user', content: query }], bubble, apiKey, {
+        baseUrl: 'https://api.groq.com/openai/v1',
+        model: 'moonshotai/kimi-k2-instruct-0905',
+      });
+    } else if (provider === 'groq-llama') {
+      answer = await askOpenAI([{ role: 'user', content: query }], bubble, apiKey, {
+        baseUrl: 'https://api.groq.com/openai/v1',
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      });
     }
 
-    bubble.querySelectorAll('#thinking-text').forEach(el => el.remove());
-    bubble.querySelector('.flex.items-start')?.insertAdjacentHTML('beforeend',
-      `<div>${assistantText(answer)}</div>`);
+    bubble.querySelectorAll('#thinking-text').forEach(el => el.closest('div')?.remove());
+    bubble.insertAdjacentHTML('beforeend', `
+      <div class="flex items-start gap-3 mt-2">
+        <div class="w-6 h-6 shrink-0"></div>
+        <div class="min-w-0 flex-1">${assistantText(answer)}</div>
+      </div>`);
   } catch (err) {
-    bubble.querySelectorAll('#thinking-text').forEach(el => el.remove());
-    bubble.querySelector('.flex.items-start')?.insertAdjacentHTML('beforeend', errorBubble(err.message));
+    bubble.querySelectorAll('#thinking-text').forEach(el => el.closest('div')?.remove());
+    bubble.insertAdjacentHTML('beforeend', `
+      <div class="flex items-start gap-3 mt-2">
+        <div class="w-6 h-6 shrink-0"></div>
+        <div>${errorBubble(err.message)}</div>
+      </div>`);
   } finally {
     userInput.disabled = false;
     userInput.focus();
