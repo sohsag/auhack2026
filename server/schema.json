@@ -1,0 +1,67 @@
+{
+  "database": "sales_db",
+  "dialect": "ansi_sql",
+  "tables": [
+    {
+      "name": "orders",
+      "description": "Customer purchase orders",
+      "columns": [
+        { "name": "order_id", "type": "VARCHAR", "primary_key": true, "description": "Unique order identifier" },
+        { "name": "customer_id", "type": "VARCHAR", "description": "References customers.customer_id" },
+        { "name": "order_date", "type": "DATE", "description": "Date the order was placed" },
+        { "name": "status", "type": "VARCHAR", "description": "Order status: pending, shipped, delivered, cancelled" },
+        { "name": "region", "type": "VARCHAR", "description": "Geographic region: North, South, East, West" },
+        { "name": "total_amount", "type": "DECIMAL", "description": "Total order value in USD" }
+      ]
+    },
+    {
+      "name": "order_items",
+      "description": "Individual line items within an order",
+      "columns": [
+        { "name": "item_id", "type": "VARCHAR", "primary_key": true, "description": "Unique line item identifier" },
+        { "name": "order_id", "type": "VARCHAR", "description": "References orders.order_id" },
+        { "name": "product_id", "type": "VARCHAR", "description": "References products.product_id" },
+        { "name": "quantity", "type": "INTEGER", "description": "Number of units purchased" },
+        { "name": "unit_price", "type": "DECIMAL", "description": "Price per unit at time of purchase" }
+      ]
+    },
+    {
+      "name": "products",
+      "description": "Product catalog",
+      "columns": [
+        { "name": "product_id", "type": "VARCHAR", "primary_key": true, "description": "Unique product identifier" },
+        { "name": "name", "type": "VARCHAR", "description": "Product display name" },
+        { "name": "category", "type": "VARCHAR", "description": "Product category (e.g. Electronics, Clothing, Home)" },
+        { "name": "sku", "type": "VARCHAR", "description": "Stock keeping unit code" },
+        { "name": "unit_cost", "type": "DECIMAL", "description": "Cost to produce/procure the product" }
+      ]
+    },
+    {
+      "name": "customers",
+      "description": "Customer account information",
+      "columns": [
+        { "name": "customer_id", "type": "VARCHAR", "primary_key": true, "description": "Unique customer identifier" },
+        { "name": "name", "type": "VARCHAR", "description": "Full customer name" },
+        { "name": "email", "type": "VARCHAR", "description": "Customer email address" },
+        { "name": "segment", "type": "VARCHAR", "description": "Customer segment: Enterprise, SMB, Consumer" },
+        { "name": "created_at", "type": "DATE", "description": "Date customer account was created" }
+      ]
+    },
+    {
+      "name": "sales_reps",
+      "description": "Internal sales team members",
+      "columns": [
+        { "name": "rep_id", "type": "VARCHAR", "primary_key": true, "description": "Unique sales rep identifier" },
+        { "name": "name", "type": "VARCHAR", "description": "Sales rep full name" },
+        { "name": "region", "type": "VARCHAR", "description": "Assigned region: North, South, East, West" },
+        { "name": "team", "type": "VARCHAR", "description": "Sales team name" },
+        { "name": "quota", "type": "DECIMAL", "description": "Quarterly revenue quota in USD" }
+      ]
+    }
+  ],
+  "relationships": [
+    { "from": "orders.customer_id", "to": "customers.customer_id" },
+    { "from": "order_items.order_id", "to": "orders.order_id" },
+    { "from": "order_items.product_id", "to": "products.product_id" }
+  ]
+}
