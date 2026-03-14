@@ -12,9 +12,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const defaultPool = process.env.DATABASE_URL
-  ? new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
-  : null;
 
 const poolCache = {};
 
@@ -28,7 +25,7 @@ function getPool(req) {
 }
 
 // Return the documented schema so the LLM has full context
-app.get('/schema', (req, res) => res.json(schema));
+app.get('/schema', (_, res) => res.json(schema));
 
 // Execute a read-only SQL query
 app.post('/query', async (req, res) => {
