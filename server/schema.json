@@ -1,67 +1,100 @@
 {
-  "database": "sales_db",
-  "dialect": "ansi_sql",
+  "database": "neondb",
+  "dialect": "postgresql",
+  "description": "European energy grid data for 2024 across 12 country/bidding zones. All timestamps are UTC. Generation and load are hourly averages (downsampled from 15-min source data). Physical flows are daily averages (downsampled from hourly).",
   "tables": [
     {
-      "name": "orders",
-      "description": "Customer purchase orders",
+      "name": "zones",
+      "description": "Lookup table of all country/bidding zone codes present in the database",
       "columns": [
-        { "name": "order_id", "type": "VARCHAR", "primary_key": true, "description": "Unique order identifier" },
-        { "name": "customer_id", "type": "VARCHAR", "description": "References customers.customer_id" },
-        { "name": "order_date", "type": "DATE", "description": "Date the order was placed" },
-        { "name": "status", "type": "VARCHAR", "description": "Order status: pending, shipped, delivered, cancelled" },
-        { "name": "region", "type": "VARCHAR", "description": "Geographic region: North, South, East, West" },
-        { "name": "total_amount", "type": "DECIMAL", "description": "Total order value in USD" }
-      ]
+        { "name": "zone_code", "type": "VARCHAR(8)", "primary_key": true, "description": "Short zone identifier, e.g. 'DE', 'DK1', 'NO2'" },
+        { "name": "country_name", "type": "VARCHAR(64)", "description": "Human-readable country or zone name" }
+      ],
+      "example_values": {
+        "zone_code": ["AT", "BE", "CH", "CZ", "DE", "DK", "DK1", "DK2", "FR", "NL", "NO2", "PL", "SE4"]
+      }
     },
     {
-      "name": "order_items",
-      "description": "Individual line items within an order",
+      "name": "spot_prices",
+      "description": "Hourly day-ahead electricity spot prices per bidding zone in EUR/MWh. Covers AT, BE, CH, CZ, DE, DK1, FR, NL, PL for full year 2024. Negative prices occur during oversupply (e.g. high wind + low demand).",
       "columns": [
-        { "name": "item_id", "type": "VARCHAR", "primary_key": true, "description": "Unique line item identifier" },
-        { "name": "order_id", "type": "VARCHAR", "description": "References orders.order_id" },
-        { "name": "product_id", "type": "VARCHAR", "description": "References products.product_id" },
-        { "name": "quantity", "type": "INTEGER", "description": "Number of units purchased" },
-        { "name": "unit_price", "type": "DECIMAL", "description": "Price per unit at time of purchase" }
-      ]
+        { "name": "zone", "type": "VARCHAR(8)", "description": "Bidding zone code. References zones.zone_code" },
+        { "name": "ts", "type": "TIMESTAMPTZ", "description": "Start of the hour (UTC)" },
+        { "name": "price_eur_mwh", "type": "NUMERIC(10,4)", "description": "Electricity price in EUR per MWh" }
+      ],
+      "primary_key": ["zone", "ts"]
     },
     {
-      "name": "products",
-      "description": "Product catalog",
+      "name": "generation",
+      "description": "Hourly average electricity generation per bidding zone and source type, in MW. Covers AT, BE, CH, CZ, DE, DK1, FR, NL, PL for 2024. Downsampled from 15-minute source data.",
       "columns": [
-        { "name": "product_id", "type": "VARCHAR", "primary_key": true, "description": "Unique product identifier" },
-        { "name": "name", "type": "VARCHAR", "description": "Product display name" },
-        { "name": "category", "type": "VARCHAR", "description": "Product category (e.g. Electronics, Clothing, Home)" },
-        { "name": "sku", "type": "VARCHAR", "description": "Stock keeping unit code" },
-        { "name": "unit_cost", "type": "DECIMAL", "description": "Cost to produce/procure the product" }
-      ]
+        { "name": "zone", "type": "VARCHAR(8)", "description": "Bidding zone code. References zones.zone_code" },
+        { "name": "ts", "type": "TIMESTAMPTZ", "description": "Start of the hour (UTC)" },
+        { "name": "source", "type": "generation_source (ENUM)", "description": "Energy source type" },
+        { "name": "value_mw", "type": "NUMERIC(12,4)", "description": "Average generation output in megawatts during this hour" }
+      ],
+      "primary_key": ["zone", "ts", "source"],
+      "enum_values": {
+        "source": [
+          "BIOMASS", "COAL-DERVIED GAS", "ENERGY-STORAGE", "FOSSIL-GAS",
+          "GEOTHERMAL", "HARD-COAL", "HYDRO-PUMPED-STORAGE", "HYDRO-ROR",
+          "HYDRO-WATER-RESERVOIR", "LIGNITE", "NUCLEAR", "OIL",
+          "OTHER", "OTHER-RENEWABLE", "SOLAR", "WASTE", "WIND-OFFSHORE", "WIND-ONSHORE"
+        ]
+      }
     },
     {
-      "name": "customers",
-      "description": "Customer account information",
+      "name": "total_load",
+      "description": "Hourly average total electricity consumption per bidding zone in MW. Covers AT, BE, CH, CZ, DE, DK1, FR, NL, PL for 2024. Downsampled from 15-minute source data.",
       "columns": [
-        { "name": "customer_id", "type": "VARCHAR", "primary_key": true, "description": "Unique customer identifier" },
-        { "name": "name", "type": "VARCHAR", "description": "Full customer name" },
-        { "name": "email", "type": "VARCHAR", "description": "Customer email address" },
-        { "name": "segment", "type": "VARCHAR", "description": "Customer segment: Enterprise, SMB, Consumer" },
-        { "name": "created_at", "type": "DATE", "description": "Date customer account was created" }
-      ]
+        { "name": "zone", "type": "VARCHAR(8)", "description": "Bidding zone code. References zones.zone_code" },
+        { "name": "ts", "type": "TIMESTAMPTZ", "description": "Start of the hour (UTC)" },
+        { "name": "value_mw", "type": "NUMERIC(12,4)", "description": "Average electricity consumption in megawatts during this hour" }
+      ],
+      "primary_key": ["zone", "ts"]
     },
     {
-      "name": "sales_reps",
-      "description": "Internal sales team members",
+      "name": "physical_flows",
+      "description": "Daily average cross-border physical electricity flows between bidding zones in MW. A positive value means power flowed from from_zone into to_zone on that day.",
       "columns": [
-        { "name": "rep_id", "type": "VARCHAR", "primary_key": true, "description": "Unique sales rep identifier" },
-        { "name": "name", "type": "VARCHAR", "description": "Sales rep full name" },
-        { "name": "region", "type": "VARCHAR", "description": "Assigned region: North, South, East, West" },
-        { "name": "team", "type": "VARCHAR", "description": "Sales team name" },
-        { "name": "quota", "type": "DECIMAL", "description": "Quarterly revenue quota in USD" }
-      ]
+        { "name": "from_zone", "type": "VARCHAR(8)", "description": "Exporting zone. References zones.zone_code" },
+        { "name": "to_zone", "type": "VARCHAR(8)", "description": "Importing zone. References zones.zone_code" },
+        { "name": "ts", "type": "TIMESTAMPTZ", "description": "The date (daily granularity)" },
+        { "name": "value_mw", "type": "NUMERIC(12,4)", "description": "Average power flow in megawatts for the day" }
+      ],
+      "primary_key": ["from_zone", "to_zone", "ts"]
+    },
+    {
+      "name": "weather",
+      "description": "Hourly weather observations per zone from open-meteo, at a representative location for each country. Covers AT, BE, CH, CZ, DE, DK, FR, NL, PL for 2024.",
+      "columns": [
+        { "name": "zone", "type": "VARCHAR(8)", "description": "Zone code. References zones.zone_code" },
+        { "name": "ts", "type": "TIMESTAMPTZ", "description": "Observation timestamp (UTC)" },
+        { "name": "temperature_2m", "type": "NUMERIC(5,2)", "description": "Air temperature at 2m height in °C" },
+        { "name": "wind_speed_10m", "type": "NUMERIC(6,2)", "description": "Wind speed at 10m height in km/h" },
+        { "name": "wind_speed_100m", "type": "NUMERIC(6,2)", "description": "Wind speed at 100m height (turbine hub height) in km/h" },
+        { "name": "relative_humidity", "type": "SMALLINT", "description": "Relative humidity at 2m in %" },
+        { "name": "cloud_cover", "type": "SMALLINT", "description": "Total cloud cover in %" },
+        { "name": "wind_direction_10m", "type": "SMALLINT", "description": "Wind direction at 10m in degrees (0=N, 90=E, 180=S, 270=W)" },
+        { "name": "wind_direction_100m", "type": "SMALLINT", "description": "Wind direction at 100m in degrees" },
+        { "name": "precipitation", "type": "NUMERIC(6,2)", "description": "Precipitation in mm" }
+      ],
+      "primary_key": ["zone", "ts"]
     }
   ],
   "relationships": [
-    { "from": "orders.customer_id", "to": "customers.customer_id" },
-    { "from": "order_items.order_id", "to": "orders.order_id" },
-    { "from": "order_items.product_id", "to": "products.product_id" }
+    { "from": "spot_prices.zone", "to": "zones.zone_code" },
+    { "from": "generation.zone", "to": "zones.zone_code" },
+    { "from": "total_load.zone", "to": "zones.zone_code" },
+    { "from": "physical_flows.from_zone", "to": "zones.zone_code" },
+    { "from": "physical_flows.to_zone", "to": "zones.zone_code" },
+    { "from": "weather.zone", "to": "zones.zone_code" }
+  ],
+  "useful_query_patterns": [
+    "JOIN generation + weather ON (zone, ts) to correlate wind/solar output with wind speed or cloud cover",
+    "JOIN spot_prices + generation to see how generation mix affects price",
+    "JOIN spot_prices + total_load to see price vs demand relationship",
+    "GROUP BY source on generation to compare renewable vs fossil mix per country",
+    "Use DATE_TRUNC('month', ts) or DATE_TRUNC('day', ts) to aggregate to coarser time periods"
   ]
 }
