@@ -194,7 +194,7 @@ Always call get_schema first — it returns the live database schema including t
 Use that information to write accurate SQL. Never guess table or column names.
 When you write SQL, show it clearly. After running a query, explain the results in plain language.
 Only use SELECT queries. Never modify data.`;
-}
+
 
 const TOOL_DEFS = {
   get_schema: {
