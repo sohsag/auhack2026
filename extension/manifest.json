@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Nerdata",
+  "version": "1.0.0",
+  "description": "Ask your data questions in plain English — Nerdata writes the SQL for you.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://*.console.aws.amazon.com/*",
+    "https://glue.*.amazonaws.com/*",
+    "https://athena.*.amazonaws.com/*",
+    "https://api.anthropic.com/*",
+    "https://api.openai.com/*",
+    "https://api.moonshot.ai/*",
+    "https://api.groq.com/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.console.aws.amazon.com/athena/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Nerdata"
+  }
+}
