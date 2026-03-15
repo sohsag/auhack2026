@@ -1,52 +1,50 @@
-# auhack2026
-auhack winners 2026
+# Nerdata
 
-Phase 1: The Static Frontend
-Goal: A UI that looks the part.
+Talk to your database in plain English. Nerdata connects to any PostgreSQL database, introspects the schema automatically, and lets you ask questions — no SQL needed.
 
-[ ] index.html: Create a single-page layout with a scrollable chat window and a sticky bottom input bar.
+## What it is
 
-[ ] style.css: Use a clean, "AI-dark-mode" aesthetic. Keep it minimal.
+**Nerdata** is a chat UI that acts as a natural language interface to Postgres. You paste a connection string, ask a question, and the LLM figures out the schema, writes the SQL, runs it, and explains the results. It works with any database — not just the one it was built with.
 
-[ ] Settings UI: Add a small gear icon that opens a drawer to input:
+## How it works
 
-LLM API Key (OpenAI or Anthropic).
+1. You connect a Postgres database via connection string
+2. When you ask a question, the LLM calls `get_schema` — the server introspects `information_schema` live and returns all tables, columns, types, relationships, and sample rows
+3. The LLM uses that to write a SQL query, which runs against your database
+4. Results come back as a table in the chat, with a plain-English explanation
+5. You can ask follow-up questions and ask to plot the data as a chart — the LLM remembers the conversation
 
-MCP Server URL (default to http://localhost:3000).
+## Stack
 
-Phase 2: The LLM Connection
-Goal: Get the prompt to the AI and back.
+- `index.html` + `app.js` — chat UI, runs entirely in the browser, calls LLM APIs directly
+- `server/server.js` — lightweight Express server that proxies queries to Postgres and serves live schema
+- LLM providers: Anthropic (Claude), OpenAI (GPT-4o), Google (Gemini), Moonshot (Kimi K2), Groq
 
-[ ] app.js: Write a function askLLM(prompt) that uses fetch to call the OpenAI/Anthropic API directly.
+## Running it
 
-[ ] Render Chat: Display the user message immediately and show a "typing..." bubble while waiting for the response.
+**Start:**
+```bash
+cd server
+npm install
+node server.js
+```
 
-[ ] Tool-Call Logic: Update the LLM call to include a tools definition (this tells the AI it can search your database).
+Then open `http://localhost:3000` in your browser.
 
-Phase 3: The MCP Server (The "Bridge")
-Goal: A simple Node.js script to hold the data.
+**Configure in the sidebar:**
+- Pick your LLM provider and paste your API key
+- Paste a PostgreSQL connection string
+- Server URL defaults to `http://localhost:3000`
 
-[ ] Initialize: Create a server.js using the @modelcontextprotocol/sdk.
+The server also reads `DATABASE_URL` from the environment if you prefer not to enter it in the UI.
 
-[ ] Mock Database: Create a data.json file with some sample entries (e.g., a list of products or employees).
+## Dataset
 
-[ ] Register Tool: Create a tool called search_items that takes a string query and returns matching rows from your JSON file.
+The repo includes a European energy grid dataset (`data/`) covering 2024 — spot prices, electricity generation by source, total load, cross-border physical flows, and weather across 12 bidding zones.
 
-[ ] CORS: Ensure the MCP server allows requests from your local HTML file.
-
-Phase 4: Connecting the Glue
-Goal: LLM actually uses the tool.
-
-[ ] The Loop:
-
-User asks a question.
-
-Frontend sends prompt to LLM.
-
-LLM returns a "Tool Call" (wants to search the DB).
-
-Frontend executes that search against the Local MCP Server.
-
-Frontend sends the DB results back to the LLM.
-
-LLM gives the final answer to the user.
+To ingest it into your own Postgres:
+```bash
+cd server/db
+pip install polars psycopg2-binary
+DATABASE_URL=postgresql://... python ingest.py
+```

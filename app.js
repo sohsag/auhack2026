@@ -188,20 +188,21 @@ providerSelect.addEventListener('change', () => {
 
 // ── Tool Definitions (provider-specific formats) ──────────────────────────────
 
-function getSystemPrompt() {
-  return `You help users query and understand European energy grid data using SQL. The database is PostgreSQL.
-Always call get_schema before writing SQL so you use correct table and column names.
+const SYSTEM_PROMPT = `You are a data analyst assistant. You can connect to any PostgreSQL database and help users query and understand their data.
+
+Always call get_schema first — it returns the live database schema including table names, column names, types, and sample rows so you understand the data shape.
+Use that information to write accurate SQL. Never guess table or column names.
 When you write SQL, show it clearly. After running a query, explain the results in plain language.
 Only use SELECT queries. Never modify data.`;
 }
 
 const TOOL_DEFS = {
   get_schema: {
-    description: 'Returns the full database schema including all tables, columns, types, and relationships. Always call this before writing SQL.',
+    description: 'Introspects the connected PostgreSQL database and returns all tables, columns, data types, foreign key relationships, and sample rows. Always call this before writing any SQL.',
     parameters: { type: 'object', properties: {} },
   },
   run_sql: {
-    description: 'Executes a read-only SQL SELECT query and returns the results.',
+    description: 'Executes a read-only SQL SELECT query against the connected PostgreSQL database and returns the results.',
     parameters: {
       type: 'object',
       properties: { sql: { type: 'string', description: 'A valid SQL SELECT query for the configured backend' } },
