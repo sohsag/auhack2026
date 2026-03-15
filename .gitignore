@@ -145,3 +145,4 @@ data
 CLAUDE.md
 venv
 .terraform
+terraform.tfstate
