@@ -18,7 +18,7 @@ Return ONLY the raw SQL query with no explanation, no markdown, no code fences. 
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'GENERATE_SQL') {
-    generateSQL(message.prompt).then(sendResponse).catch(err => sendResponse({ error: err.message }));
+    generateSQL(message.prompt, message.history || []).then(sendResponse).catch(err => sendResponse({ error: err.message }));
     return true;
   }
   if (message.type === 'RUN_QUERY') {
@@ -118,28 +118,38 @@ async function runQuery(sql) {
 
 // ── SQL generation ────────────────────────────────────────────────────────────
 
-async function generateSQL(prompt) {
+async function generateSQL(prompt, history = []) {
   const settings = await chrome.storage.sync.get(['apiKey', 'provider']);
   const { apiKey, provider = 'anthropic' } = settings;
   if (!apiKey) throw new Error('No API key set. Open the Nerdata popup to configure.');
 
   const creds = await getAWSCreds();
-  const schema = await fetchSchemaFromGlue(creds);
 
-  const schemaText = schema.tables.map(t =>
-    `Table: ${t.name}\nColumns: ${t.columns.map(c => `${c.name} (${c.type})`).join(', ')}`
-  ).join('\n\n');
+  // Only fetch schema on first message in conversation
+  let schemaContext = '';
+  if (history.length <= 1) {
+    const schema = await fetchSchemaFromGlue(creds);
+    schemaContext = `Athena database: ${schema.database}\n\n` +
+      schema.tables.map(t =>
+        `Table: ${t.name}\nColumns: ${t.columns.map(c => `${c.name} (${c.type})`).join(', ')}`
+      ).join('\n\n') + '\n\n';
+  }
 
-  const userMessage = `Athena database: ${schema.database}\n\n${schemaText}\n\nQuestion: ${prompt}`;
+  const firstUserMessage = schemaContext + `Question: ${prompt}`;
 
-  if (provider === 'anthropic') return callAnthropic(apiKey, userMessage);
-  if (provider === 'gemini')    return callGemini(apiKey, userMessage);
-  return callOpenAI(apiKey, provider, userMessage);
+  // Build messages: schema injected into first user message, rest passed as-is
+  const messages = history.length <= 1
+    ? [{ role: 'user', content: firstUserMessage }]
+    : [...history.slice(0, -1), { role: 'user', content: prompt }];
+
+  if (provider === 'anthropic') return callAnthropic(apiKey, messages);
+  if (provider === 'gemini')    return callGemini(apiKey, messages);
+  return callOpenAI(apiKey, provider, messages);
 }
 
 // ── LLM callers ───────────────────────────────────────────────────────────────
 
-async function callAnthropic(apiKey, userMessage) {
+async function callAnthropic(apiKey, messages) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
@@ -147,7 +157,7 @@ async function callAnthropic(apiKey, userMessage) {
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMessage }],
+      messages,
     }),
   });
   if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'Anthropic error'); }
@@ -155,7 +165,7 @@ async function callAnthropic(apiKey, userMessage) {
   return { sql: data.content.find(b => b.type === 'text')?.text.trim() };
 }
 
-async function callOpenAI(apiKey, provider, userMessage) {
+async function callOpenAI(apiKey, provider, messages) {
   const ENDPOINTS = {
     openai:       { url: 'https://api.openai.com/v1/chat/completions',      model: 'gpt-4o' },
     kimi:         { url: 'https://api.moonshot.ai/v1/chat/completions',      model: 'kimi-k2-0711-preview' },
@@ -168,7 +178,7 @@ async function callOpenAI(apiKey, provider, userMessage) {
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model,
-      messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: userMessage }],
+      messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
     }),
   });
   if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || 'API error'); }
@@ -176,7 +186,11 @@ async function callOpenAI(apiKey, provider, userMessage) {
   return { sql: data.choices[0].message.content.trim() };
 }
 
-async function callGemini(apiKey, userMessage) {
+async function callGemini(apiKey, messages) {
+  const contents = messages.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
@@ -184,7 +198,7 @@ async function callGemini(apiKey, userMessage) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+        contents,
       }),
     }
   );
