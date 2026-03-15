@@ -143,3 +143,5 @@ data
 .DS_Store
 .claude
 CLAUDE.md
+venv
+.terraform
